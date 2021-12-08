@@ -1,0 +1,6 @@
+%{
+  "cowlib": {:hex, :cowlib, "2.11.0", "0b9ff9c346629256c42ebe1eeb769a83c6cb771a6ee5960bd110ab0b9b872063", [:make, :rebar3], [], "hexpm", "2b3e9da0b21c4565751a6d4901c20d1b4cc25cbb7fd50d91d2ab6dd287bc86a9"},
+  "emqtt": {:git, "https://github.com/emqx/emqtt.git", "b3c6cba48cdf15c3e573ebcaf94502249ade6689", [tag: "1.4.4"]},
+  "getopt": {:hex, :getopt, "1.0.2", "33d9b44289fe7ad08627ddfe1d798e30b2da0033b51da1b3a2d64e72cd581d02", [:rebar3], [], "hexpm", "a0029aea4322fb82a61f6876a6d9c66dc9878b6cb61faa13df3187384fd4ea26"},
+  "gun": {:git, "https://github.com/emqx/gun", "e1b5e14139e2a936ad6561bf960f70f1e80b81e2", [tag: "1.3.4"]},
+}
