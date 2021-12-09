@@ -2,17 +2,17 @@
 
 ## Introduction
 
-Recently I have read an awesome book [Build a Weather Station with Elixir and Nerves](https://pragprog.com/titles/passweather/build-a-weather-station-with-elixir-and-nerves/).
+Recently I have read an excellent book [Build a Weather Station with Elixir and Nerves](https://pragprog.com/titles/passweather/build-a-weather-station-with-elixir-and-nerves/).
 It introduces Elixir as a tool for building embedded applications.
 
-With [Nerves](https://www.nerves-project.org/) we can
+With [Nerves](https://www.nerves-project.org/), we can
 run Elixir code on network-enabled devices interacting with
 some controlling software and each other.
 
-The aforementioned book mostly focuses on the Nerves part and
+The book mentioned above mainly focuses on the Nerves part and
 uses HTTP protocol for network interactions. Although this is
-a reasonable choise in many situations, I want to introduce another
-option that is widely used for production IoT setups: [MQTT](https://mqtt.org/).
+a reasonable choice in many situations, I want to introduce another
+widely used option for production IoT setups: [MQTT](https://mqtt.org/).
 
 ## MQTT Protocol
 
@@ -22,21 +22,21 @@ communications. It is used in many areas, such as banking, oil & gas industry, m
 MQTT protocol has many advantages, but here I want to mention some of them:
 
 * It is a lightweight binary protocol generally running over TCP/IP.
-* It is designed for unreliable networking which makes it a good choise for outdoor installations.
+* It is designed for unreliable networking, making it a good choice for outdoor installations.
 * It follows pub/sub model simplifying client logic.
 
-We will demonstrate some of MQTT advantages in our setup.
+We will demonstrate some of MQTT's advantages in our setup.
 
 ## MQTT Brokers
 
-An essential thing about MQTT is that it simplifies client logic, which is important for embedded devices.
-This is achieved with pub/sub model: in MQTT there is no concept of a "server".
-All participating entities are clients connecting to a so called _broker_.
-Client _subscribe_ to _topics_, _publish_ messages to them, and the broker does the routing (and many other things).
+An essential thing about MQTT is that it simplifies the client's logic, which is critical for embedded devices.
+This is achieved with the pubsub model: in MQTT, there is no concept of a "server".
+Instead, all participating entities are clients connecting to a so-called _broker_.
+Clients _subscribe_ to _topics_, _publish_ messages to them, and the broker does the routing (and many other things).
 
-A good production ready broker, like [EMQX](https://github.com/emqx/emqx) generally provides
-not only MQTT routing capabilities, but many other intellectual features, like
-* other kinds of connection methods, like webscokets;
+A good production-ready broker, like [EMQX](https://github.com/emqx/emqx) generally provides
+not only MQTT routing capabilities but many other intellectual features, like
+* other kinds of connection methods, like WebSockets;
 * different models of authentication and authorization;
 * streaming data to databases;
 * custom routing rules based on message introspection;
@@ -54,8 +54,8 @@ mix new --sup weather_sensor
 cd weather_sensor
 ```
 
-To interact with MQTT broker we need an MQTT client. We take [emqtt](https://github.com/emqx/emqtt)
-add it to `mix.exs` as a dependancy:
+To interact with an MQTT broker, we need an MQTT client. We take [emqtt](https://github.com/emqx/emqtt).
+Add it to `mix.exs` as a dependency:
 
 ```elixir
 defp deps do
@@ -195,18 +195,18 @@ Let us summarize a bit what happens in `WeatherSensor`:
 * On timer timeout, it publishes `{Timestamp, Temperature}` tuple to `/reports/weather_sensor/temperature` topic.
 * On receiving a message from `/commands/weather_sensor/set_interval` topic, it updates timer interval.
 
-Since our appliation is not a real Nerves application with a sensor like BMP280 attached, we just generate temperature data.
+Since our application is not a real Nerves application with a sensor like BMP280 attached, we generate temperature data.
 
 Here we can already see one advantage over HTTP interaction: we can not only send data,
-but also receive some commands in real time.
+but also receive some commands in real-time.
 
 ## Dashboard Setup
 
-Since there are no "servers" in MQTT, our controlling dasboard will also be an MQTT client.
+Since there are no "servers" in MQTT, our controlling dashboard will also be an MQTT client.
 But it will *subscribe* to `/reports/weather_sensor/temperature` topic and *publish* commands to
 `/commands/weather_sensor/set_interval`.
 
-For a dashbord, we will setup a Phoenix LiveView application.
+For a dashboard, we will set up a Phoenix LiveView application.
 
 Let's create it:
 
@@ -285,7 +285,7 @@ Update template for our page (`lib/weather_dashboard_web/live/temperature_live/i
 </div>
 ```
 
-On this page we have a chart and an input control to send commands to our "device".
+We have a chart and input control to send commands to our "device" on this page.
 
 Now update the major part, LiveView controller (`lib/weather_dashboard_web/live/temperature_live/index.ex`):
 
@@ -406,10 +406,10 @@ end
 
 There are some things to note.
 * We created a LiveView handler to serve the main page of our app.
-* Normally, `Phoenix.PubSub` is used to update a LiveView process state, but we make a nice trick: since
-an MQTT broker already provides pubsub model we connect directly to it from our LiveView process.
-* On receiving new temperature data, server updates temperature chart.
-* On receiving form update from a user, we send updated interval to the command topic.
+* Normally, `Phoenix.PubSub` is used to update a LiveView process state. But instead, we do a trick: since
+an MQTT broker already provides a pubsub model, we connect directly to it from our LiveView process.
+* On receiving new temperature data, the server updates the temperature chart.
+* On receiving a form update from a user, we send an updated interval to the command topic.
 
 Finally, set up routing in `lib/weather_dashboard_web/router.ex` so that our controller handles the root page:
 
@@ -425,7 +425,7 @@ Finally, set up routing in `lib/weather_dashboard_web/router.ex` so that our con
 
 Now we are ready to set all the things up and running.
 
-We run MQTT broker. Since currently we do not want any special settings, the simplest way is to
+We run an MQTT broker. Since we do not want any specific settings, the simplest way is to
 run broker with docker.
 
 ```bash
@@ -470,7 +470,7 @@ iex(1)> [watch] build finished, watching for changes...
 
 Let's navigate to [http://localhost:4000](http://localhost:4000).
 
-We see that a corresponding LiveView process mounted, connected to the broker and started to receive
+We see that a corresponding LiveView process mounted, connected to the broker, and started to receive
 temperature data:
 
 ```elixir
@@ -490,12 +490,12 @@ temperature data:
 ...
 ```
 
-Also, the page started to update immediatly:
+Also, the page started to update immediately:
 
 ![Dashboard](images/dashboard.png)
 
-If we update interval, we see that the device node receives command
-immediatly and starts to update more frequently:
+If we update the interval, we see that the device node receives the command
+immediately and starts to update more frequently:
 
 ![Dashboard](images/dashboard-300ms.png)
 
@@ -504,7 +504,7 @@ We see that the node continued to send data with the updated frequency.
 
 ![Dashboard](images/dashboard-300ms-restore.png)
 
-How could that happen? The secret is simple: the `retain` flag of command messages that we send to the command topic.
+How could that happen? The secret is simple: the `retain` flag of command messages we send to the command topic.
 
 ``` elixir
 :ok = :emqtt.publish(
@@ -515,10 +515,10 @@ How could that happen? The secret is simple: the `retain` flag of command messag
 )
 ```
 
-When we send a message with `retain` flag to a topic, this message becomes also a "default" message. The broker
+When we send a message with `retain` flag to a topic, this message also becomes a "default" message. The broker
 keeps it, and each subscriber to the topic receives this message on subscribe.
 
-This feature is especially important for embedded devices that may go offline often and do not have any easy to use
+This feature is significant for embedded devices that may go offline often and do not have any easy-to-use
 local storage to keep their state. This is the way to get them correctly configured on connect.
 
 ## Conclusion
@@ -527,10 +527,10 @@ In this article we
 
 * demonstrated a popular way of interaction with embedded devices — MQTT protocol;
 * we introduced it's usage in Elixir;
-* we also demonstrated some advantages of MQTT such as pubsub model and message retaining.
+* we also demonstrated some advantages of MQTT, such as pubsub model and message retaining.
 
 Other powerful features thaw we might want to use even in a simple setup are:
-* streaming topic data into database so that we could display history on connect without "manual" saving;
+* streaming topic data into a database so that we could display history on connecting without "manual" saving;
 * using [MQTT.js](https://github.com/mqttjs/MQTT.js) to connect to the broker directly from the frontend through WebSockets.
 
 All the code is available at [https://github.com/savonarola/mqtt-article](https://github.com/savonarola/mqtt-article).
