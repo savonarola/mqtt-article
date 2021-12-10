@@ -45,7 +45,7 @@ defmodule WeatherDashboard.MixProject do
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
 
-      {:emqtt, github: "emqx/emqtt", tag: "1.4.4"},
+      {:emqtt, github: "emqx/emqtt", tag: "1.4.4", system_env: [{"BUILD_WITHOUT_QUIC", "1"}]},
       {:contex, github: "mindok/contex"}
     ]
   end

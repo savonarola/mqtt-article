@@ -35,7 +35,7 @@ Instead, all participating entities are clients connecting to a so-called _broke
 Clients _subscribe_ to _topics_, _publish_ messages to them, and the broker does the routing (and many other things).
 
 A good production-ready broker, like [EMQX](https://github.com/emqx/emqx) generally provides
-not only MQTT routing capabilities but many other intellectual features, like
+not only MQTT routing capabilities but many other interesting features, like
 * other kinds of connection methods, like WebSockets;
 * different models of authentication and authorization;
 * streaming data to databases;
@@ -60,15 +60,9 @@ Add it to `mix.exs` as a dependency:
 ```elixir
 defp deps do
   [
-    {:emqtt, github: "emqx/emqtt", tag: "1.4.4"}
+    {:emqtt, github: "emqx/emqtt", tag: "1.4.4", system_env: [{"BUILD_WITHOUT_QUIC", "1"}]}
   ]
 end
-```
-
-```bash
-# we do not want to use and build QUIC capabilities
-export BUILD_WITHOUT_QUIC=1
-mix deps.get
 ```
 
 We will put all our "sensor" code to the main module `WeatherSensor`, so we need to
@@ -107,63 +101,60 @@ defmodule WeatherSensor do
   def init([]) do
     interval = Application.get_env(:weather_sensor, :interval)
     emqtt_opts = Application.get_env(:weather_sensor, :emqtt)
-    # This is the topic to which we will publish our reports
-    report_topic = "/reports/#{emqtt_opts[:clientid]}/temperature"
+    report_topic = "reports/#{emqtt_opts[:clientid]}/temperature"
     {:ok, pid} = :emqtt.start_link(emqtt_opts)
+    st = %{
+      interval: interval,
+      timer: nil,
+      report_topic: report_topic,
+      pid: pid
+    }
 
-    timer = :erlang.start_timer(interval, self(), :tick)
-    {:ok,
-      %{
-        interval: interval,
-        timer: timer,
-        report_topic: report_topic,
-        pid: pid
-      },
-      {:continue, :start_emqtt}}
+    {:ok, set_timer(st), {:continue, :start_emqtt}}
   end
 
   def handle_continue(:start_emqtt, %{pid: pid} = st) do
-    # Here we make actual connection to the broker
     {:ok, _} = :emqtt.connect(pid)
+
     emqtt_opts = Application.get_env(:weather_sensor, :emqtt)
     clientid = emqtt_opts[:clientid]
-    # From this topic we will receive commands
-    {:ok, _, _} = :emqtt.subscribe(pid, {"/commands/#{clientid}/set_interval", 1})
+    {:ok, _, _} = :emqtt.subscribe(pid, {"commands/#{clientid}/set_interval", 1})
     {:noreply, st}
   end
 
-  def handle_info({:timeout, _ref, :tick}, %{report_topic: topic, pid: pid} = st) do
+  def handle_info(:tick, %{report_topic: topic, pid: pid} = st) do
     report_temperature(pid, topic)
-    {:noreply, ensure_timer(st)}
+    {:noreply, set_timer(st)}
   end
 
   def handle_info({:publish, publish}, st) do
-    IO.inspect(publish)
     handle_publish(parse_topic(publish), publish, st)
   end
 
   defp handle_publish(["commands", _, "set_interval"], %{payload: payload}, st) do
-    new_interval = String.to_integer(payload)
-    {:noreply, %{st | interval: new_interval}}
+    new_st = %{st | interval: String.to_integer(payload)}
+    {:noreply, set_timer(new_st)}
   end
 
   defp handle_publish(_, _, st) do
     {:noreply, st}
   end
 
-  defp ensure_timer(%{timer: timer, interval: interval} = st) do
-    :erlang.cancel_timer(timer)
-    new_timer = :erlang.start_timer(interval, self(), :tick)
-    %{st | timer: new_timer}
-  end
-
   defp parse_topic(%{topic: topic}) do
     String.split(topic, "/", trim: true)
   end
 
+  defp set_timer(st) do
+    if st.timer do
+      Process.cancel_timer(st.timer)
+    end
+    timer = Process.send_after(self(), :tick, st.interval)
+    %{st | timer: timer}
+  end
+
   defp report_temperature(pid, topic) do
     temperature = 10.0 + 2.0 * :rand.normal()
-    message = {:os.system_time(:millisecond), temperature}
+    message = {System.system_time(:millisecond), temperature}
     payload = :erlang.term_to_binary(message)
     :emqtt.publish(pid, topic, payload)
   end
@@ -189,22 +180,24 @@ Let us summarize a bit what happens in `WeatherSensor`:
 * It implements `GenServer` behaviour.
 * When starting, it
     * opens an MQTT connection;
-    * subscribes to `/commands/weather_sensor/set_interval` topic for receiving commands, received data will
+    * subscribes to `commands/weather_sensor/set_interval` topic for receiving commands, received data will
     be sent to the process by `:emqtt` as `{:publish, publish}` messages.
     * schedules timer with a predefined interval.
-* On timer timeout, it publishes `{Timestamp, Temperature}` tuple to `/reports/weather_sensor/temperature` topic.
-* On receiving a message from `/commands/weather_sensor/set_interval` topic, it updates timer interval.
+* On timer timeout, it publishes `{Timestamp, Temperature}` tuple to `reports/weather_sensor/temperature` topic.
+* On receiving a message from `commands/weather_sensor/set_interval` topic, it updates timer interval.
 
 Since our application is not a real Nerves application with a sensor like BMP280 attached, we generate temperature data.
 
 Here we can already see one advantage over HTTP interaction: we can not only send data,
 but also receive some commands in real-time.
 
+We need a working broker to run the node successfully; we will start it later.
+
 ## Dashboard Setup
 
 Since there are no "servers" in MQTT, our controlling dashboard will also be an MQTT client.
-But it will *subscribe* to `/reports/weather_sensor/temperature` topic and *publish* commands to
-`/commands/weather_sensor/set_interval`.
+But it will *subscribe* to `reports/weather_sensor/temperature` topic and *publish* commands to
+`commands/weather_sensor/set_interval`.
 
 For a dashboard, we will set up a Phoenix LiveView application.
 
@@ -226,16 +219,10 @@ Add dependencies to `mix.exs`
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
 
-      {:emqtt, github: "emqx/emqtt", tag: "1.4.4"},
+      {:emqtt, github: "emqx/emqtt", tag: "1.4.4", system_env: [{"BUILD_WITHOUT_QUIC", "1"}]},
       {:contex, github: "mindok/contex"} # We will need this for SVG charts
     ]
   end
-```
-
-```bash
-# we do not want to use and build QUIC capabilities
-export BUILD_WITHOUT_QUIC=1
-mix deps.get
 ```
 
 Add some settings to `config/dev.exs`:
@@ -302,7 +289,7 @@ defmodule WeatherDashboardWeb.TemperatureLive.Index do
     {:ok, pid} = :emqtt.start_link(emqtt_opts)
     {:ok, _} = :emqtt.connect(pid)
     # Listen reports
-    {:ok, _, _} = :emqtt.subscribe(pid, "/reports/#")
+    {:ok, _, _} = :emqtt.subscribe(pid, "reports/#")
     {:ok, assign(socket,
       reports: reports,
       pid: pid,
@@ -322,11 +309,11 @@ defmodule WeatherDashboardWeb.TemperatureLive.Index do
       {interval, ""} ->
         id = Application.get_env(:weather_dashboard, :sensor_id)
         # Send command to device
-        topic = "/commands/#{id}/set_interval"
+        topic = "commands/#{id}/set_interval"
         :ok = :emqtt.publish(
           socket.assigns[:pid],
           topic,
-          :erlang.integer_to_binary(interval),
+          interval_s,
           retain: true
         )
         {:noreply, assign(socket, interval: interval)}
@@ -510,7 +497,7 @@ How could that happen? The secret is simple: the `retain` flag of command messag
 :ok = :emqtt.publish(
   socket.assigns[:pid],
   topic,
-  :erlang.integer_to_binary(interval),
+  interval_s,
   retain: true
 )
 ```

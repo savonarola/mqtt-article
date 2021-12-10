@@ -1,7 +1,7 @@
 defmodule WeatherDashboardWeb.TemperatureLive.Index do
   use WeatherDashboardWeb, :live_view
 
-  require Logger 
+  require Logger
 
   @impl true
   def mount(_params, _session, socket) do
@@ -10,8 +10,8 @@ defmodule WeatherDashboardWeb.TemperatureLive.Index do
     {:ok, pid} = :emqtt.start_link(emqtt_opts)
     {:ok, _} = :emqtt.connect(pid)
     # Listen reports
-    {:ok, _, _} = :emqtt.subscribe(pid, "/reports/#")
-    {:ok, assign(socket, 
+    {:ok, _, _} = :emqtt.subscribe(pid, "reports/#")
+    {:ok, assign(socket,
       reports: reports,
       pid: pid,
       plot: nil,
@@ -30,15 +30,15 @@ defmodule WeatherDashboardWeb.TemperatureLive.Index do
       {interval, ""} ->
         id = Application.get_env(:weather_dashboard, :sensor_id)
         # Send command to device
-        topic = "/commands/#{id}/set_interval"
+        topic = "commands/#{id}/set_interval"
         :ok = :emqtt.publish(
           socket.assigns[:pid],
           topic,
-          :erlang.integer_to_binary(interval),
+          interval_s,
           retain: true
         )
         {:noreply, assign(socket, interval: interval)}
-      _ ->  
+      _ ->
         {:noreply, socket}
     end
   end
@@ -67,7 +67,7 @@ defmodule WeatherDashboardWeb.TemperatureLive.Index do
     new_report = {DateTime.from_unix!(ts, :millisecond), val}
     now = DateTime.utc_now()
     deadline = DateTime.add(DateTime.utc_now(), - 2 * Application.get_env(:weather_dashboard, :timespan), :second)
-    reports = 
+    reports =
       [new_report | socket.assigns[:reports]]
       |> Enum.filter(fn {dt, _} -> DateTime.compare(dt, deadline) == :gt end)
       |> Enum.sort()
