@@ -1,0 +1,13 @@
+<div>
+  <%= if @plot do %>
+    <%= @plot %>
+  <% end %>
+</div>
+
+<div>
+  <form phx-submit="set-interval">
+    <label for="interval">Interval</label>
+    <input type="text" name="interval" value={@interval}/>
+    <input type="submit" value="Set interval"/>
+  </form>
+</div>
